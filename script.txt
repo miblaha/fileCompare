@@ -1,0 +1,93 @@
+
+Sub CompareAllDocuments
+	GlobalScope.BasicLibraries.loadLibrary("Tools")
+
+	Dim Sheet As Object
+	Dim Row As Integer
+	Dim Q As Integer
+	
+	Q = MsgBox("Do you want to continue?", MB_YESNO + MB_DEFBUTTON2 + MB_ICONQUESTION)
+	If Q <> IDYES Then
+		Exit Sub
+	End If
+	
+	Sheet = ThisComponent.Sheets.getByName("Comparisons")
+
+	For Row = 2 To 10000
+		Dim CellFinished As Object
+		Dim CellOriginal As Object
+		Dim CellNew As Object
+		Dim CellDestination As Object
+		Dim Doc As Object
+		Dim Target As String
+		
+		CellFinished = Sheet.getCellByPosition(0, Row)
+		CellOriginal = Sheet.getCellByPosition(1, Row)
+		CellNew = Sheet.getCellByPosition(2, Row)
+		CellDestination = Sheet.getCellByPosition(3, Row)
+		
+		If (CellFinished.String <> "Finished" And CellOriginal.String <> "" And CellNew.String <> "" And CellDestination.String <> "") Then
+			Doc = CompareDocs(CellNew.String, CellOriginal.String)
+			
+			Target = Tools.Strings.DirectoryNameoutofPath(ThisComponent.getURL(),"/") & "/" & CellDestination.String			
+			SaveAs(Doc, Target)
+			SaveAsPdf(Doc, Left(Target, Len(Target) - 3) & "pdf")
+
+		    Doc.close(true)
+		    
+			CellFinished.String = "Finished"
+		End If
+	Next Row
+	
+	MsgBox "Finished."
+End Sub
+
+Function CompareDocs(NewerDocToCompare As String, EarlierDoc As String) As Object
+	Dim NewerUrl As String
+	Dim EarlierUrl As String
+	dim Dispatcher as Object
+	Dim FileProperties()
+	Dim Doc As Object
+	Dim Document As Object		
+	
+	NewerUrl = Tools.Strings.DirectoryNameoutofPath(ThisComponent.getURL(),"/") & "/" & NewerDocToCompare
+	EarlierUrl = Tools.Strings.DirectoryNameoutofPath(ThisComponent.getURL(),"/") & "/" & EarlierDoc
+	
+	Doc = StarDesktop.loadComponentFromURL(NewerUrl, "_default", 0, FileProperties)
+	Dispatcher = CreateUnoService("com.sun.star.frame.DispatchHelper") 
+	Document = StarDesktop.getCurrentFrame()
+	
+	Dim args1(2) as new com.sun.star.beans.PropertyValue 
+	args1(0).Name = "URL" 
+	args1(0).Value = EarlierUrl
+
+	args1(1).Name = "NoAcceptDialog"
+	args1(1).Value = True
+
+	Dispatcher.executeDispatch(Document, ".uno:CompareDocuments", "", 0, args1())
+	
+	CompareDocs = Doc
+End Function
+
+
+
+Private Sub SaveAs(Doc As Object, Target As String)
+	Dim FileProperties(0) As New com.sun.star.beans.PropertyValue
+
+	FileProperties(0).Name = "Overwrite"
+	FileProperties(0).Value = True
+
+	Doc.storeAsURL(Target, FileProperties())
+End Sub
+
+Private Sub SaveAsPdf(Doc As Object, Target As String)
+	Dim FileProperties(1) As New com.sun.star.beans.PropertyValue
+
+	FileProperties(0).Name = "Overwrite"
+	FileProperties(0).Value = True
+
+	FileProperties(1).Name = "FilterName"
+	FileProperties(1).Value = "writer_pdf_Export"
+
+	Doc.storeToURL(Target, FileProperties())
+End Sub
